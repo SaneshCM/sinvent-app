@@ -1,6 +1,7 @@
 import asyncHandler from 'express-async-handler';
 import User from '../models/userModel.js';
 import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
 
 const generateToken = (id) => {
     return jwt.sign({id}, process.env.JWT_SECRET, {expiresIn:"1d"});
@@ -59,8 +60,83 @@ const registerUser = asyncHandler( async (req, res) => {
 });
 
 //Login User
-const loginUser = asyncHandler( (req, res) => {
-    res.send("login");
+const loginUser = asyncHandler( async (req, res) => {
+    const {email, password} = req.body;
+
+    //validate request
+    if (!email || !password) {
+        res.status(400);
+        throw new Error("Please add email and password");
+    }
+
+    //check if user exists
+    const user = await User.findOne({email});
+
+    //validate user exists
+    if (!user) {
+        res.status(400);
+        throw new Error("User not found, please signup");
+    }
+
+    //user exists, check if password is correct or not
+    const passwordIsCorrent = await bcrypt.compare(password, user.password);
+
+    //Generate Token
+    const token = generateToken(user._id);
+
+    // send HTTP-only cookie
+    if(passwordIsCorrent){
+        res.cookie("token", token, {
+            path: "/",
+            httpOnly: true,
+            expires: new Date(Date.now() + 1000 * 86400), //1 day
+            sameSite: "none", //front end and backend different url, so set to none
+            secure: true //https
+        });
+    }
+    if(user && passwordIsCorrent) {
+        const {_id, name, email, photo, phone, bio} = user
+        res.status(200).json({
+            _id, name, email, photo, phone, bio, token
+        });
+    } else {
+        res.status(400);
+        throw new Error("Invalid email or password");
+    }
+
 });
 
-export {registerUser, loginUser} 
+//Logout user
+const logoutUser = asyncHandler(async (req, res) => {
+    
+    res.cookie("token", "", {
+        path: "/",
+        httpOnly: true,
+        expires: new Date(0), //current
+        sameSite: "none", //front end and backend different url, so set to none
+        secure: true //https
+    });
+
+    return res.status(200).json({ message: "Succesfully Logged Out"});
+
+});
+
+const getUser = asyncHandler( async (req, res) => {
+    const user = await User.findById(req.user._id);
+    if(user) {
+        const {_id, name, email, photo, phone, bio} = user
+        res.status(201).json({
+            _id, name, email, photo, phone, bio
+        });
+    } else {
+        res.status(400);
+        throw new Error("User not found");
+    }
+});
+
+//get logged in status
+const loginStatus = asyncHandler( async (req, res) => { 
+
+});
+
+export {registerUser, loginUser, logoutUser, getUser, loginStatus} 

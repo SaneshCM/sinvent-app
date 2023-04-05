@@ -1,9 +1,10 @@
 import nodemailer from 'nodemailer';
 
 const sendEmail = async (subject, message, send_to, sent_from, reply_to)=> {
-    //Create Email Trasnporter
+    //Create Email Transporter
     const transporter = nodemailer.createTransport({
-        service: 'gmail',
+        host: process.env.EMAIL_HOST,
+        port: 587,
         auth: {
             user: process.env.EMAIL_USER,
             pass: process.env.EMAIL_PASS
@@ -12,9 +13,6 @@ const sendEmail = async (subject, message, send_to, sent_from, reply_to)=> {
             rejectUnauthorized: false
         }
     });
-
-    console.log(process.env.EMAIL_USER);
-    console.log(process.env.EMAIL_PASS);
 
     //Options to send mail
     const options = {
